@@ -506,8 +506,8 @@ function Lunatic:add_message(message, kind)
 end
 
 -- Tool management facade.
-function Lunatic:register_tool(spec, handler)
-    return self.tools:register(spec, handler)
+function Lunatic:register_tool(a, b, c)
+    return self.tools:register(a, b, c)
 end
 function Lunatic:unregister_tool(name) return self.tools:unregister(name) end
 function Lunatic:has_tool(name)        return self.tools:has(name) end
