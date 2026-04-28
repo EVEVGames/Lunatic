@@ -1,5 +1,5 @@
 -- lunatic/tools/save_memory.lua
--- Tool: save_memory. Globals `args` and `ctx` injected by Lunatic.
+local args, ctx = ...
 -- Uses ctx.memory (the agent's MemoryStore) so it respects the workspace.
 
 if type(args) ~= "table" or type(args.fact) ~= "string" or args.fact == "" then
