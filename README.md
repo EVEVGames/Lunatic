@@ -135,13 +135,13 @@ Pass a string and Lunatic will lazy-load that module on each call:
 agent:register_tool({ name = "webbrowser", ... }, "tools.webbrowser")
 ```
 
-The module file uses **`args` and `ctx` as injected environment globals** —
-no varargs, no boilerplate. The chunk's top-level `return` is the tool
-result:
+The module file receives `args` and `ctx` as function parameters. The chunk's
+top-level `return` is the tool result:
 
 ```lua
 -- tools/webbrowser.lua
--- args and ctx are visible as globals; no `local args = ...` needed
+local args, ctx = ...
+
 if type(args) ~= "table" or not args.url then
     return nil, "url required"
 end
@@ -365,7 +365,7 @@ agent:messages({ include_subagents = false })    -- skip transcript embedding
 
 ```lua
 local idx = agent:add_message({ role = "system", content = "important note" },
-                              L.Loop.MK_PINNED_NOTE)
+                               L.Loop.MK_PINNED_NOTE)
 agent.loop:pin(idx)
 ```
 
