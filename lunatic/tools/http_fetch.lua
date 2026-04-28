@@ -1,5 +1,5 @@
 -- lunatic/tools/http_fetch.lua
--- Tool: http_fetch. Globals `args` and `ctx` injected by Lunatic.
+local args, ctx = ...
 -- Uses ctx.http (the agent's injected HTTPS lib) instead of requiring ssl.https
 -- directly — so the same instance honours sandboxed environments.
 
