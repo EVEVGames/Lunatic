@@ -5,10 +5,10 @@
 --   * a Lua function: called directly as handler(args, ctx).
 --   * a string: treated as a module path passed to require() lazily on first call.
 --     The required module file is expected to be a top-level script that:
---       local args = ...
+--       local args, ctx = ...
 --       -- (do work)
 --       return <result>
---     i.e. it accepts a single table argument via varargs and returns the result
+--     i.e. it accepts args and ctx via varargs and returns the result
 --     as the chunk's return value. We invoke it as a fresh chunk each call so
 --     state does not leak between invocations (use loadfile semantics).
 --
@@ -183,8 +183,8 @@ function ToolRegistry:names()
 end
 
 -- Cache for resolved file paths. Keyed by module path string. We do NOT cache
--- the chunk itself: we re-load each invocation so the file's environment can
--- be replaced fresh per call, and `args` / `ctx` reflect the current call.
+-- the chunk itself: we re-load each invocation so fresh args/ctx are provided
+-- via varargs on each call.
 local _module_path_cache = {}
 
 -- Resolve a module path (e.g. "tools.webbrowser") to an on-disk file path.
@@ -214,39 +214,8 @@ local function resolve_module_path(module_path)
     return file_path, nil
 end
 
--- Build a sandboxed environment for a tool file. The environment exposes:
---   args   - the decoded JSON arguments table from the LLM tool_call
---   ctx    - the runtime context (fs, http, json, memory, agent, agent_id, log)
--- and inherits everything else from the global environment so the file can
--- still call print, table.insert, ipairs, require, etc.
-local function build_tool_env(args, ctx)
-    -- Determine the underlying global env in a version-compatible way.
-    -- _G works on every Lua version. We treat it as the inheritance parent.
-    local env = setmetatable({
-        args = args,
-        ctx  = ctx,
-    }, { __index = _G })
-    return env
-end
-
--- Apply env to a chunk. Lua 5.1 / LuaJIT use setfenv. Lua 5.2+ require
--- replacing the chunk's first upvalue (_ENV) via debug.setupvalue.
-local function apply_env(chunk, env)
-    if setfenv then
-        -- 5.1 / LuaJIT path
-        setfenv(chunk, env)
-        return true
-    end
-    -- 5.2+ path: replace _ENV upvalue.
-    if debug and debug.setupvalue then
-        local ok = pcall(debug.setupvalue, chunk, 1, env)
-        return ok
-    end
-    return false
-end
-
 -- Build a callable that loads the tool file fresh each call and runs it
--- with `args` and `ctx` injected as environment globals.
+-- with `args` and `ctx` injected as varargs.
 local function make_module_handler(module_path)
     return function(args, ctx)
         local file_path, err = resolve_module_path(module_path)
@@ -260,16 +229,9 @@ local function make_module_handler(module_path)
             return nil, "loadfile failed: " .. tostring(lerr)
         end
 
-        local env = build_tool_env(args, ctx)
-        local applied = apply_env(chunk, env)
-        if not applied then
-            return nil, "could not set tool environment"
-        end
-
-        -- Module-style tools access args/ctx exclusively as environment
-        -- globals. We do NOT forward varargs into the chunk: the contract
-        -- is "use the globals". This keeps tool files simple and uniform.
-        local pcall_ret = { pcall(chunk) }
+        -- Module-style tools receive args and ctx via varargs.
+        -- Invoke as: local args, ctx = ...
+        local pcall_ret = { pcall(chunk, args, ctx) }
         local ok = pcall_ret[1]
         if not ok then
             return nil, "tool chunk error: " .. tostring(pcall_ret[2])
