@@ -187,6 +187,7 @@ describe("ToolRegistry: dispatch (module-path handler)", function()
 
         local mfile = io.open(mod_dir .. "envtool.lua", "wb")
         mfile:write(
+            "local args, ctx = ...\n" ..
             "if not args or not ctx then return nil, 'missing globals' end\n" ..
             "return 'envtool got: ' .. tostring(args.x) .. ' / fs=' .. tostring(ctx.fs ~= nil)\n"
         )
