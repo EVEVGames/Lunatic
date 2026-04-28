@@ -1,5 +1,5 @@
 -- lunatic/tools/write_file.lua
--- Tool: write_file. Globals `args` and `ctx` are injected by Lunatic.
+local args, ctx = ...
 
 if type(args) ~= "table" or type(args.path) ~= "string"
     or type(args.content) ~= "string" then
