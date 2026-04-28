@@ -1,6 +1,8 @@
 -- lunatic/tools/save_memory.lua
-local args, ctx = ...
+-- Tool: save_memory. Unpacks varargs explicitly.
 -- Uses ctx.memory (the agent's MemoryStore) so it respects the workspace.
+
+local args, ctx = ...
 
 if type(args) ~= "table" or type(args.fact) ~= "string" or args.fact == "" then
     return nil, "fact (non-empty string) is required"

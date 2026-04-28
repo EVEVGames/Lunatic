@@ -5,10 +5,10 @@
 --   * a Lua function: called directly as handler(args, ctx).
 --   * a string: treated as a module path passed to require() lazily on first call.
 --     The required module file is expected to be a top-level script that:
---       local args, ctx = ...
+--       local args = ...
 --       -- (do work)
 --       return <result>
---     i.e. it accepts args and ctx via varargs and returns the result
+--     i.e. it accepts a single table argument via varargs and returns the result
 --     as the chunk's return value. We invoke it as a fresh chunk each call so
 --     state does not leak between invocations (use loadfile semantics).
 --
@@ -183,8 +183,8 @@ function ToolRegistry:names()
 end
 
 -- Cache for resolved file paths. Keyed by module path string. We do NOT cache
--- the chunk itself: we re-load each invocation so fresh args/ctx are provided
--- via varargs on each call.
+-- the chunk itself: we re-load each invocation so the file's environment can
+-- be replaced fresh per call, and `args` / `ctx` reflect the current call.
 local _module_path_cache = {}
 
 -- Resolve a module path (e.g. "tools.webbrowser") to an on-disk file path.
@@ -215,7 +215,12 @@ local function resolve_module_path(module_path)
 end
 
 -- Build a callable that loads the tool file fresh each call and runs it
--- with `args` and `ctx` injected as varargs.
+-- with `args` and `ctx` passed as varargs. The tool file declares them
+-- explicitly with `local args, ctx = ...` at the top — this is preferred
+-- over environment-injection because it's:
+--   1. Visible in the source (no hidden globals)
+--   2. Friendlier to static analysers and IDEs
+--   3. Works identically across all Lua versions without setfenv tricks
 local function make_module_handler(module_path)
     return function(args, ctx)
         local file_path, err = resolve_module_path(module_path)
@@ -229,8 +234,8 @@ local function make_module_handler(module_path)
             return nil, "loadfile failed: " .. tostring(lerr)
         end
 
-        -- Module-style tools receive args and ctx via varargs.
-        -- Invoke as: local args, ctx = ...
+        -- Pass args and ctx as varargs. Tool files unpack them with
+        -- `local args, ctx = ...` at the top.
         local pcall_ret = { pcall(chunk, args, ctx) }
         local ok = pcall_ret[1]
         if not ok then

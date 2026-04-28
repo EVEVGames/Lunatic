@@ -1,4 +1,6 @@
 -- lunatic/tools/edit_file.lua
+-- Tool: edit_file. Unpacks varargs explicitly.
+
 local args, ctx = ...
 
 if type(args) ~= "table" or type(args.path) ~= "string"

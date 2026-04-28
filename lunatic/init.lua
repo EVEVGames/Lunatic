@@ -505,7 +505,11 @@ function Lunatic:add_message(message, kind)
     return self.loop:add_message(message, kind)
 end
 
--- Tool management facade.
+-- Tool management facade. Forwards all three positional args so all
+-- signatures supported by ToolRegistry:register also work through here:
+--   :register_tool(spec, handler)
+--   :register_tool(name, spec, handler)
+--   :register_tool(name, handler)            -- shorthand
 function Lunatic:register_tool(a, b, c)
     return self.tools:register(a, b, c)
 end

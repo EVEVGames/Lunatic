@@ -484,9 +484,110 @@ function AgentLoop:step()
 
     if resp.tool_calls and #resp.tool_calls > 0 then
         self.status = "awaiting_tool"
-        for i = 1, #resp.tool_calls do
-            dispatch_tool_call(self, resp.tool_calls[i])
+
+        -- First pass: identify spawn_subagent calls. If there are 2+ of them,
+        -- we want them to progress in cooperative round-robin within this
+        -- single turn (so the LLM doesn't block on the first one to finish).
+        -- We dispatch other tool calls inline as before.
+        local sub_calls = {}
+        if self.subagent_manager then
+            for i = 1, #resp.tool_calls do
+                if resp.tool_calls[i].name == "spawn_subagent" then
+                    sub_calls[#sub_calls + 1] = resp.tool_calls[i]
+                end
+            end
         end
+
+        if #sub_calls >= 2 then
+            -- Spawn all subagents up front, drive them via run_pool, then
+            -- emit one tool_result per subagent in original order.
+            local handles_by_id = {}
+            for i = 1, #sub_calls do
+                local tc = sub_calls[i]
+                self:fire("on_tool_call",
+                    { name = tc.name, args = tc.arguments, id = tc.id })
+                self.log("info", "tool_call",
+                    { agent_id = self.agent_id, tool = tc.name, id = tc.id })
+                self:_yield("before_tool",
+                    { name = tc.name, args = tc.arguments })
+
+                local args = tc.arguments or {}
+                if type(args) ~= "table" or type(args.task) ~= "string"
+                    or args.task == "" then
+                    handles_by_id[tc.id] = {
+                        error_text = "spawn_subagent requires args.task (string)" }
+                else
+                    local handle = self.subagent_manager:spawn({
+                        task = args.task,
+                        tools = args.tools,
+                        inherit_tools = args.inherit_tools,
+                        builtin_tools = (args.builtin_tools ~= nil)
+                            and args.builtin_tools or false,
+                        llm = args.model and { model = args.model } or nil,
+                        max_iterations = args.max_iterations,
+                        parent_call_id = tc.id,
+                    })
+                    handles_by_id[tc.id] = handle
+                end
+            end
+
+            -- Collect actual handles (skip the failed-arg sentinels).
+            local handles = {}
+            for i = 1, #sub_calls do
+                local tc = sub_calls[i]
+                local h = handles_by_id[tc.id]
+                if h and not h.error_text then
+                    handles[#handles + 1] = h
+                end
+            end
+            if #handles > 0 then
+                self.subagent_manager:run_pool(handles)
+            end
+
+            -- Now process EVERY tool_call in original order, emitting tool
+            -- results. Subagent calls use the run_pool results; other calls
+            -- go through dispatch_tool_call as normal.
+            for i = 1, #resp.tool_calls do
+                local tc = resp.tool_calls[i]
+                if tc.name == "spawn_subagent" then
+                    local h = handles_by_id[tc.id]
+                    local result_str
+                    if h and h.error_text and not h.id then
+                        -- arg-validation sentinel
+                        result_str = "[subagent failed]: " .. h.error_text
+                    elseif h.status_value == "error" then
+                        result_str = "[subagent " .. h.id .. " failed]: " ..
+                            tostring(h.error_text)
+                    else
+                        result_str = "[subagent " .. h.id .. " result]:\n" ..
+                            tostring(h.result_text or "")
+                    end
+
+                    local tool_msg = {
+                        role = "tool",
+                        tool_call_id = tc.id,
+                        name = tc.name,
+                        content = result_str,
+                    }
+                    self:add_message(tool_msg)
+                    self:fire("on_tool_result",
+                        { name = tc.name, id = tc.id, result = result_str,
+                          err = (h and h.error_text) or nil })
+                    self.log("info", "tool_result",
+                        { agent_id = self.agent_id, tool = tc.name, id = tc.id,
+                          ok = not (h and h.error_text) })
+                    self:_yield("after_tool", { name = tc.name })
+                else
+                    dispatch_tool_call(self, tc)
+                end
+            end
+        else
+            -- Single tool call (or no subagent calls): inline dispatch.
+            for i = 1, #resp.tool_calls do
+                dispatch_tool_call(self, resp.tool_calls[i])
+            end
+        end
+
         self.status = "running"
         return "tool_calls_pending"
     end

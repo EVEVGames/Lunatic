@@ -1,10 +1,16 @@
 -- lunatic/tools/read_file.lua
 -- Tool: read_file
 --
-local args, ctx = ...
+-- Tool modules receive their input via varargs. The first thing the file
+-- must do is unpack them with `local args, ctx = ...`:
+--
+--   args  -- decoded JSON arguments table from the LLM tool_call
+--   ctx   -- runtime context: { fs, json, http, memory, agent, agent_id, log }
 --
 -- The chunk's top-level return value becomes the tool result. Returning
 -- (nil, "msg") signals an error to the agent.
+
+local args, ctx = ...
 
 if type(args) ~= "table" or type(args.path) ~= "string" then
     return nil, "path (string) is required"

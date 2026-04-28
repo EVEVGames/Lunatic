@@ -1,4 +1,6 @@
 -- lunatic/tools/recall_memory.lua
+-- Tool: recall_memory. Unpacks varargs explicitly.
+
 local args, ctx = ...
 
 local memory = ctx and ctx.memory

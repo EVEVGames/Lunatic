@@ -188,17 +188,17 @@ describe("ToolRegistry: dispatch (module-path handler)", function()
         local mfile = io.open(mod_dir .. "envtool.lua", "wb")
         mfile:write(
             "local args, ctx = ...\n" ..
-            "if not args or not ctx then return nil, 'missing globals' end\n" ..
+            "if not args or not ctx then return nil, 'missing varargs' end\n" ..
             "return 'envtool got: ' .. tostring(args.x) .. ' / fs=' .. tostring(ctx.fs ~= nil)\n"
         )
         mfile:close()
 
         local mfile2 = io.open(mod_dir .. "errtool.lua", "wb")
-        mfile2:write("return nil, 'module-level error'\n")
+        mfile2:write("local args, ctx = ...\nreturn nil, 'module-level error'\n")
         mfile2:close()
 
         local mfile3 = io.open(mod_dir .. "boomtool.lua", "wb")
-        mfile3:write("error('KABOOM')\n")
+        mfile3:write("local args, ctx = ...\nerror('KABOOM')\n")
         mfile3:close()
 
         -- Drop any cached path resolutions across tests so the new mod_dir wins.
@@ -208,7 +208,7 @@ describe("ToolRegistry: dispatch (module-path handler)", function()
         Tools = require("lunatic.tools")
     end)
 
-    it("invokes the file with args/ctx as env globals", function()
+    it("passes args and ctx via varargs (local args, ctx = ...)", function()
         local r = Tools.new()
         r:register({ name = "envtool" }, "envtool")
         local res = r:dispatch("envtool", { x = "hi" }, { fs = {} })

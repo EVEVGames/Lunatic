@@ -135,8 +135,8 @@ Pass a string and Lunatic will lazy-load that module on each call:
 agent:register_tool({ name = "webbrowser", ... }, "tools.webbrowser")
 ```
 
-The module file receives `args` and `ctx` as function parameters. The chunk's
-top-level `return` is the tool result:
+The module file unpacks `args` and `ctx` from the varargs at the top of
+the file. The chunk's top-level `return` is the tool result:
 
 ```lua
 -- tools/webbrowser.lua
@@ -365,7 +365,7 @@ agent:messages({ include_subagents = false })    -- skip transcript embedding
 
 ```lua
 local idx = agent:add_message({ role = "system", content = "important note" },
-                               L.Loop.MK_PINNED_NOTE)
+                              L.Loop.MK_PINNED_NOTE)
 agent.loop:pin(idx)
 ```
 
@@ -545,7 +545,7 @@ L.Lunatic.new({
 The repo ships two test suites:
 
 ```
-tests/         -- simple assert-based smoke + edge tests
+tests/         -- legacy assert-based smoke + edge tests
 spec/          -- describe/it/expect specs (the bulk of the suite)
 ```
 

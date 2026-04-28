@@ -1,10 +1,10 @@
 -- lunatic/tools/list_dir.lua
+-- Tool: list_dir. Unpacks varargs explicitly.
+
 local args, ctx = ...
+if type(args) ~= "table" then args = {} end
 
-local a = args
-if type(a) ~= "table" then a = {} end
-
-local path = a.path or "."
+local path = args.path or "."
 
 if not io.popen then
     return nil, "io.popen unavailable; cannot list directory"

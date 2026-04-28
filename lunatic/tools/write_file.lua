@@ -1,4 +1,6 @@
 -- lunatic/tools/write_file.lua
+-- Tool: write_file. Unpacks varargs explicitly.
+
 local args, ctx = ...
 
 if type(args) ~= "table" or type(args.path) ~= "string"

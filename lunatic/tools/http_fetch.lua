@@ -1,7 +1,9 @@
 -- lunatic/tools/http_fetch.lua
+-- Tool: http_fetch. Unpacks varargs explicitly.
+-- Uses ctx.http (the agent's injected HTTPS lib) instead of requiring
+-- ssl.https directly — so the same instance honours sandboxed environments.
+
 local args, ctx = ...
--- Uses ctx.http (the agent's injected HTTPS lib) instead of requiring ssl.https
--- directly — so the same instance honours sandboxed environments.
 
 if type(args) ~= "table" or type(args.url) ~= "string" then
     return nil, "url (string) is required"
