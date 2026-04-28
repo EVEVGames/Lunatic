@@ -350,7 +350,7 @@ package.path = mod_dir .. "?.lua;" .. package.path
 
 local mod_file = io.open(mod_dir .. "my_string_tool.lua", "wb")
 mod_file:write([[
--- args/ctx are injected as environment globals by the tool registry.
+local args, ctx = ...
 if type(args) ~= "table" then return nil, "args required" end
 return "module-tool got: " .. tostring(args.x)
 ]])
