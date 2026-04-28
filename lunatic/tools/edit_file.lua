@@ -1,5 +1,5 @@
 -- lunatic/tools/edit_file.lua
--- Tool: edit_file. Globals `args` and `ctx` injected by Lunatic.
+local args, ctx = ...
 
 if type(args) ~= "table" or type(args.path) ~= "string"
     or type(args.search) ~= "string" or type(args.replace) ~= "string" then
