@@ -5,8 +5,4 @@
 -- them directly to the SubagentManager — see lunatic/loop.lua. This file
 -- exists only so the registry has a module path to reference.
 --
--- Globals `args` and `ctx` are injected by Lunatic but are unused here:
--- a real spawn requires the parent agent's context and cannot work from a
--- detached chunk.
-
 return nil, "spawn_subagent must be invoked through Lunatic's subagent manager"
