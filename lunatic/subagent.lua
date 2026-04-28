@@ -272,35 +272,13 @@ function SubagentManager:cancel(id)
     return true
 end
 
--- Helper: yield from the calling coroutine if we are inside one. Lua 5.1
--- cannot yield across a pcall, so we never wrap yield in pcall.
-local function safe_yield(stage, data)
-    if coroutine.isyieldable then
-        if not coroutine.isyieldable() then return end
-        coroutine.yield(stage, data)
-        return
-    end
-    -- 5.1 / LuaJIT: there is no isyieldable check. The manager is invoked
-    -- from inside the main agent's coroutine in normal use, so yielding is
-    -- expected to work. If a host calls run_one() outside a coroutine
-    -- (rare), the caller already opted into blocking; we skip the yield
-    -- by checking coroutine.running().
-    if coroutine.running then
-        local co = coroutine.running()
-        -- In 5.1, coroutine.running() returns nil from the main thread.
-        if co == nil then return end
-    end
-    coroutine.yield(stage, data)
-end
-
--- Drive a single subagent to completion cooperatively. This is what the
--- spawn_subagent built-in tool calls. While waiting for the subagent's
--- coroutine to advance, we yield from the parent's coroutine too — so if the
--- parent itself has siblings being driven by a Runner, they can interleave.
+-- Drive a single subagent to completion synchronously (blocking).
+-- This is what the spawn_subagent built-in tool calls.
+-- Since tool dispatch is already synchronous within the loop,
+-- we run the subagent to completion without yielding.
 function SubagentManager:run_one(handle)
     while not handle:is_ready() do
         handle:next()
-        safe_yield("subagent_progress", { id = handle.id })
     end
     if type(self.parent.hooks) == "table" and self.parent.hooks.on_subagent_done then
         local payload = { id = handle.id, status = handle.status_value,
@@ -318,6 +296,7 @@ function SubagentManager:run_one(handle)
 end
 
 -- Drive multiple subagents in round-robin until all finish. Returns array of results.
+-- Runs synchronously (blocking) to avoid yield boundary issues.
 function SubagentManager:run_pool(handles)
     local pending = {}
     for i = 1, #handles do pending[i] = handles[i] end
@@ -332,9 +311,6 @@ function SubagentManager:run_pool(handles)
             end
         end
         pending = still
-        if #pending > 0 then
-            safe_yield("subagent_pool_round", { remaining = #pending })
-        end
     end
 
     local results = {}
