@@ -1,5 +1,5 @@
 -- lunatic/tools/list_dir.lua
--- Tool: list_dir. Globals `args` and `ctx` injected by Lunatic.
+local args, ctx = ...
 
 local a = args
 if type(a) ~= "table" then a = {} end
