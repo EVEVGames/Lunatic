@@ -1,11 +1,7 @@
 -- lunatic/tools/read_file.lua
 -- Tool: read_file
 --
--- This file is loaded as a fresh chunk on every invocation. Lunatic injects
--- two globals into the chunk's environment:
---
---   args    -- decoded JSON arguments table from the LLM tool_call
---   ctx     -- runtime context: { fs, json, http, memory, agent, agent_id, log }
+local args, ctx = ...
 --
 -- The chunk's top-level return value becomes the tool result. Returning
 -- (nil, "msg") signals an error to the agent.
