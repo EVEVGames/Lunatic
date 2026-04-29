@@ -432,12 +432,14 @@ local function gemini_convert_messages(messages)
             for j = 1, #m.tool_calls do
                 local tc = m.tool_calls[j]
                 local fn = tc["function"] or { name = tc.name, arguments = tc.arguments }
-                parts[#parts + 1] = {
+                local fc_part = {
                     functionCall = {
                         name = fn.name or tc.name,
                         args = (type(fn.arguments) == "table") and fn.arguments or {},
                     },
+                    thoughtSignature = tc.thought_signature or "skip_thought_signature_validator"
                 }
+                parts[#parts + 1] = fc_part
             end
             contents[#contents + 1] = { role = "model", parts = parts }
         else
@@ -501,6 +503,7 @@ local function gemini_parse_response(decoded)
                 id = "gemini_call_" .. tostring(#tool_calls + 1),
                 name = p.functionCall.name,
                 arguments = p.functionCall.args or {},
+                thought_signature = p.thoughtSignature or p.thought_signature,
             }
         end
     end
@@ -541,7 +544,8 @@ local function gemini_make_adapter()
 
             local body, err = util.safe_encode(ctx.json, payload)
             if not body then return nil, "failed to encode request: " .. tostring(err) end
-
+            body = string.gsub(body, '"args":%[%]', '"args":{}')
+            body = string.gsub(body, '"properties":%[%]', '"properties":{}')
             local headers = {
                 ["Content-Type"] = "application/json",
                 ["Accept"] = "application/json",
@@ -549,7 +553,6 @@ local function gemini_make_adapter()
             if self.extra_headers then
                 for k, v in pairs(self.extra_headers) do headers[k] = v end
             end
-
             local resp_body, status = do_request(ctx.http, {
                 url = url, method = "POST", headers = headers, body = body,
             })
